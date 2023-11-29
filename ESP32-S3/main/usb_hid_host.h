@@ -38,3 +38,11 @@ typedef struct
         void *arg;
     } hid_host_device;
 } app_event_queue_t;
+
+/**
+ * @brief HID Protocol string names
+ */
+static const char *hid_proto_name_str[] = {
+    "NONE",
+    "KEYBOARD",
+    "MOUSE"};

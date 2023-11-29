@@ -56,6 +56,9 @@ extern "C" QueueHandle_t create_queue(int queue_length, unsigned int item_size);
 extern "C" void hid_host_device_callback(hid_host_device_handle_t hid_device_handle,
                                          const hid_host_driver_event_t event,
                                          void *arg);
+extern "C" void hid_host_device_event(hid_host_device_handle_t hid_device_handle,
+                                      const hid_host_driver_event_t event,
+                                      void *arg);
 
 // static lv_disp_t *disp;
 // static lv_disp_draw_buf_t disp_buf; // contains internal graphic buffer(s) called draw buffer(s)
@@ -141,7 +144,7 @@ static void usb_lib_task(void *pvParameter)
     vTaskDelete(NULL);
 }
 
-static void configure_usb_hid(void)
+static void init_usb_hid(void)
 {
     ESP_LOGI(LCD_TAG, "Configure USB HID");
     /*
@@ -171,9 +174,16 @@ static void configure_usb_hid(void)
             if (APP_EVENT_HID_HOST == evt_queue.event_group)
             {
                 ESP_LOGI(USB_TAG, "APP_EVENT_HID_HOST");
+                hid_host_device_event(evt_queue.hid_host_device.handle,
+                                      evt_queue.hid_host_device.event,
+                                      evt_queue.hid_host_device.arg);
             }
         }
     }
+    ESP_LOGI(USB_TAG, "HID Driver uninstall");
+    ESP_ERROR_CHECK(hid_host_uninstall());
+    xQueueReset(app_event_queue);
+    vQueueDelete(app_event_queue);
 }
 
 extern "C" void app_main()
@@ -185,7 +195,7 @@ extern "C" void app_main()
     // Wait for notification from usb_lib_task to proceed
     ulTaskNotifyTake(false, 1000);
 
-    configure_usb_hid();
+    init_usb_hid();
     init_rgb_lcd();
     configure_led();
 
