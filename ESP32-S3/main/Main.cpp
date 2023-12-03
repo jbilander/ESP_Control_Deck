@@ -146,7 +146,7 @@ static void usb_lib_task(void *pvParameter)
 
 static void init_usb_hid(void)
 {
-    ESP_LOGI(LCD_TAG, "Configure USB HID");
+    ESP_LOGI(USB_TAG, "Configure USB HID");
     /*
      * HID host driver configuration
      * - create background task for handling low level event inside the HID driver
@@ -204,5 +204,10 @@ extern "C" void app_main()
         gpio_set_level(GPIO_NUM_38, s_led_state);
         s_led_state = !s_led_state;
         vTaskDelay(1000 / portTICK_PERIOD_MS);
+        /* Gameloop
+            processInput(); //handles any user input that has happened since the last call.
+            update(); // advances the game simulation one step. Run AI and physics.
+            render(); // draws the game so the player can see what happened.
+        */
     }
 }
