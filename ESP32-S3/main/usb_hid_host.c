@@ -154,7 +154,6 @@ void hid_host_interface_callback(hid_host_device_handle_t hid_device_handle,
         }
         else
         {
-            ESP_LOGI(USB_HID_HOST_TAG, "INSIDE hid_host_generic_report_callback");
             hid_host_generic_report_callback(data, data_length);
         }
 
@@ -189,17 +188,6 @@ void hid_host_device_event(hid_host_device_handle_t hid_device_handle,
     hid_host_dev_params_t dev_params;
     ESP_ERROR_CHECK(hid_host_device_get_params(hid_device_handle, &dev_params));
 
-    /*
-    hid_host_dev_info_t dev;
-    hid_host_dev_info_t *info = &dev;
-    hid_host_get_device_info(hid_device_handle, info);
-    printf("MFG: %ls\n", info->iManufacturer);
-    printf("PRODUCT: %ls\n", info->iProduct);
-    printf("SERIAL: %ls\n", info->iSerialNumber);
-    printf("PID: %d\n", info->PID);
-    printf("VID: %d\n", info->VID);
-    */
-
     switch (event)
     {
     case HID_HOST_DRIVER_EVENT_CONNECTED:
@@ -216,6 +204,21 @@ void hid_host_device_event(hid_host_device_handle_t hid_device_handle,
             if (HID_PROTOCOL_KEYBOARD == dev_params.proto)
             {
                 ESP_ERROR_CHECK(hid_class_request_set_idle(hid_device_handle, 0, 0));
+            }
+            if (HID_PROTOCOL_MOUSE == dev_params.proto)
+            {
+                size_t report_len;
+                uint8_t *report_desc = hid_host_get_report_descriptor(hid_device_handle, &report_len);
+
+                for (int i = 1; i <= report_len; i++)
+                {
+                    // 0x09, 0x38, USAGE (Wheel)
+                    if ((report_desc[i - 1] == 9) && (report_desc[i] == 56))
+                    {
+                        ESP_LOGI(USB_HID_HOST_TAG, "MOUSE HAS SCROLL WHEEL");
+                        break;
+                    }
+                }
             }
         }
         ESP_ERROR_CHECK(hid_host_device_start(hid_device_handle));
