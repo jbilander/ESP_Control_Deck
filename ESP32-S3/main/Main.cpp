@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -13,11 +15,11 @@
 #include "usb/usb_host.h"
 #include "usb/hid_host.h"
 #include "usb_hid_host.h"
-
 #include "driver/i2s_std.h"
 #include "driver/sdmmc_host.h"
 #include "sdmmc_cmd.h"
 #include "esp_vfs_fat.h"
+#include "lvgl.h"
 
 // I2S AUDIO OUT PINMAPPING
 #define I2S_WS_PIN GPIO_NUM_39
@@ -61,17 +63,43 @@
 // The pixel number in horizontal and vertical
 #define LCD_H_RES 640
 #define LCD_V_RES 480
+#define LCD_DATA_WIDTH 16 // RGB565
 
 // FrameBuffer
 #define LCD_NUM_FB 2 // allocate double frame buffer, Maximum number of buffers are 3
+
+#define LVGL_TICK_PERIOD_MS 2
+#define LVGL_TASK_MAX_DELAY_MS 500
+#define LVGL_TASK_MIN_DELAY_MS 1
+#define LVGL_TASK_STACK_SIZE (4 * 1024)
+#define LVGL_TASK_PRIORITY 2
 
 static const char *LCD_TAG = "RGB_LCD";
 static const char *USB_TAG = "USB_HID";
 static const char *I2S_TAG = "I2S";
 static const char *SDIO_TAG = "SDCARD";
 
-static esp_lcd_panel_handle_t panel_handle;
 static uint8_t s_led_state = 0;
+
+// RGB Display stuff, we use two semaphores to sync the VSYNC event and the LVGL task, to avoid potential tearing effect
+static esp_lcd_panel_handle_t panel_handle;
+static lv_disp_t *disp;             // pointer to a display structure, lv_disp_drv_t should be the first member of the structure
+static lv_disp_draw_buf_t disp_buf; // holds display buffer information, draw buffers
+static lv_disp_drv_t disp_drv;      // display driver structure, contains callback function
+static SemaphoreHandle_t lvgl_mux;
+static SemaphoreHandle_t sem_gui_ready;
+static SemaphoreHandle_t sem_vsync_end;
+static SemaphoreHandle_t sem_fps_sync;
+
+// to calculate and display fps, and toggle background color
+char buffer[128];
+static lv_obj_t *ta1;
+static volatile int cnt = 0;
+static volatile bool change_bg_color = true;
+
+// Graphics stuff to display
+static lv_style_t bg_style;
+static lv_color_t bg_color = {.ch = {.blue = 0, .green = 0, .red = 0}};
 
 // USB Host stuff
 QueueHandle_t app_event_queue;
@@ -84,14 +112,10 @@ extern "C" void hid_host_device_event(hid_host_device_handle_t hid_device_handle
                                       const hid_host_driver_event_t event,
                                       void *arg);
 
-// static lv_disp_t *disp;
-// static lv_disp_draw_buf_t disp_buf; // contains internal graphic buffer(s) called draw buffer(s)
-// static lv_disp_drv_t disp_drv;      // contains callback functions
-
 // I2S stuff
 i2s_chan_handle_t tx_handle;
 
-// SDCard stuff, SDMMC_HOST_FLAG_SPI
+// SDCard stuff
 sdmmc_card_t *card;
 
 void print_sdcard_info(void)
@@ -104,13 +128,84 @@ void print_sdcard_info(void)
     ESP_LOGI(SDIO_TAG, "Read Block Length: %u", card->csd.read_block_len);
 }
 
-/*
 static void configure_led(void)
 {
-    gpio_reset_pin(GPIO_NUM_38);
-    gpio_set_direction(GPIO_NUM_38, GPIO_MODE_OUTPUT);
+    gpio_reset_pin(GPIO_NUM_46);
+    gpio_set_direction(GPIO_NUM_46, GPIO_MODE_OUTPUT);
 }
-*/
+
+static bool on_vsync_event(esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t *event_data, void *user_data)
+{
+    BaseType_t high_task_awoken = pdFALSE;
+
+    if (xSemaphoreTakeFromISR(sem_gui_ready, &high_task_awoken) == pdTRUE)
+    {
+        xSemaphoreGiveFromISR(sem_vsync_end, &high_task_awoken);
+    }
+    xSemaphoreGive(sem_fps_sync);
+
+    return high_task_awoken == pdTRUE;
+}
+
+static void lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_map)
+{
+    esp_lcd_panel_handle_t panel_handle = (esp_lcd_panel_handle_t)drv->user_data;
+    int offsetx1 = area->x1;
+    int offsetx2 = area->x2;
+    int offsety1 = area->y1;
+    int offsety2 = area->y2;
+
+    xSemaphoreGive(sem_gui_ready);
+    xSemaphoreTake(sem_vsync_end, portMAX_DELAY);
+
+    // pass the draw buffer to the driver
+    esp_lcd_panel_draw_bitmap(panel_handle, offsetx1, offsety1, offsetx2 + 1, offsety2 + 1, color_map);
+    lv_disp_flush_ready(drv);
+}
+
+static void increase_lvgl_tick(void *arg)
+{
+    /* Tell LVGL how many milliseconds has elapsed */
+    lv_tick_inc(LVGL_TICK_PERIOD_MS);
+}
+
+static bool lvgl_lock(int timeout_ms)
+{
+    // Convert timeout in milliseconds to FreeRTOS ticks
+    // If `timeout_ms` is set to -1, the program will block until the condition is met
+    const TickType_t timeout_ticks = (timeout_ms == -1) ? portMAX_DELAY : pdMS_TO_TICKS(timeout_ms);
+    return xSemaphoreTakeRecursive(lvgl_mux, timeout_ticks) == pdTRUE;
+}
+
+static void lvgl_unlock(void)
+{
+    xSemaphoreGiveRecursive(lvgl_mux);
+}
+
+static void lvgl_port_task(void *arg)
+{
+    ESP_LOGI(LCD_TAG, "Starting LVGL task");
+    uint32_t task_delay_ms = LVGL_TASK_MAX_DELAY_MS;
+    while (1)
+    {
+        // Lock the mutex due to the LVGL APIs are not thread-safe
+        if (lvgl_lock(-1))
+        {
+            task_delay_ms = lv_timer_handler();
+            // Release the mutex
+            lvgl_unlock();
+        }
+        if (task_delay_ms > LVGL_TASK_MAX_DELAY_MS)
+        {
+            task_delay_ms = LVGL_TASK_MAX_DELAY_MS;
+        }
+        else if (task_delay_ms < LVGL_TASK_MIN_DELAY_MS)
+        {
+            task_delay_ms = LVGL_TASK_MIN_DELAY_MS;
+        }
+        vTaskDelay(pdMS_TO_TICKS(task_delay_ms));
+    }
+}
 
 static void init_rgb_lcd(void)
 {
@@ -127,7 +222,7 @@ static void init_rgb_lcd(void)
                     .vsync_pulse_width = 2,
                     .vsync_back_porch = 33,
                     .vsync_front_porch = 10},
-        .data_width = 16, // RGB565 in parallel mode, thus 16-bit in width
+        .data_width = LCD_DATA_WIDTH, // RGB565 in parallel mode, thus 16-bit in width
         .num_fbs = LCD_NUM_FB,
         .psram_trans_align = 64,
         .hsync_gpio_num = PIN_NUM_HSYNC,
@@ -136,15 +231,14 @@ static void init_rgb_lcd(void)
         .pclk_gpio_num = PIN_NUM_PCLK,
         .disp_gpio_num = -1, // display control signal not used
         .data_gpio_nums = {PIN_NUM_DATA0, PIN_NUM_DATA1, PIN_NUM_DATA2, PIN_NUM_DATA3, PIN_NUM_DATA4, PIN_NUM_DATA5, PIN_NUM_DATA6, PIN_NUM_DATA7, PIN_NUM_DATA8, PIN_NUM_DATA9, PIN_NUM_DATA10, PIN_NUM_DATA11, PIN_NUM_DATA12, PIN_NUM_DATA13, PIN_NUM_DATA14, PIN_NUM_DATA15},
-        .flags = {.fb_in_psram = true}};
+        .flags = {.fb_in_psram = true, .double_fb = true}};
     ESP_ERROR_CHECK(esp_lcd_new_rgb_panel(&panel_config, &panel_handle));
 
-    /*
-        ESP_LOGI(LCD_TAG, "Register event callbacks");
-        esp_lcd_rgb_panel_event_callbacks_t cbs = {
-            .on_vsync = on_vsync_event};
-        ESP_ERROR_CHECK(esp_lcd_rgb_panel_register_event_callbacks(panel_handle, &cbs, &disp_drv));
-    */
+    ESP_LOGI(LCD_TAG, "Register event callbacks");
+    esp_lcd_rgb_panel_event_callbacks_t cbs = {
+        .on_vsync = on_vsync_event};
+    ESP_ERROR_CHECK(esp_lcd_rgb_panel_register_event_callbacks(panel_handle, &cbs, &disp_drv));
+
     ESP_LOGI(LCD_TAG, "Initialize RGB LCD panel");
     ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));
     ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
@@ -238,7 +332,7 @@ esp_err_t i2s_setup(void)
 
     // setup the i2s config
     i2s_std_config_t std_cfg = {
-        .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(44100),                                                  // the wav file sample rate
+        .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(44100),                                                    // the wav file sample rate
         .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO), // the wav faile bit and channel config
         .gpio_cfg = {
             // refer to configuration.h for pin setup
@@ -328,6 +422,100 @@ esp_err_t play_wav(char *fp)
     return ESP_OK;
 }
 
+static void init_lvgl_lib()
+{
+    ESP_LOGI(LCD_TAG, "Initialize LVGL library");
+    lv_init();
+
+    void *buf1, *buf2;
+    ESP_LOGI(LCD_TAG, "Use frame buffers as LVGL draw buffers");
+    ESP_ERROR_CHECK(esp_lcd_rgb_panel_get_frame_buffer(panel_handle, 2, &buf1, &buf2));
+
+    // initialize LVGL draw buffers
+    lv_disp_draw_buf_init(&disp_buf, buf1, buf2, LCD_H_RES * LCD_V_RES);
+
+    ESP_LOGI(LCD_TAG, "Register display driver to LVGL");
+    lv_disp_drv_init(&disp_drv);
+    disp_drv.hor_res = LCD_H_RES;
+    disp_drv.ver_res = LCD_V_RES;
+    disp_drv.flush_cb = lvgl_flush_cb;
+    disp_drv.draw_buf = &disp_buf;
+    disp_drv.user_data = panel_handle;
+    disp_drv.full_refresh = true; // the full_refresh mode can maintain the synchronization between the two frame buffers
+
+    disp = lv_disp_drv_register(&disp_drv);
+
+    ESP_LOGI(LCD_TAG, "Install LVGL tick timer");
+    // Tick interface for LVGL (using esp_timer to generate 2ms periodic event)
+    const esp_timer_create_args_t lvgl_tick_timer_args = {
+        .callback = &increase_lvgl_tick,
+        .name = "lvgl_tick"};
+    esp_timer_handle_t lvgl_tick_timer;
+    ESP_ERROR_CHECK(esp_timer_create(&lvgl_tick_timer_args, &lvgl_tick_timer));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(lvgl_tick_timer, LVGL_TICK_PERIOD_MS * 1000));
+
+    lvgl_mux = xSemaphoreCreateRecursiveMutex();
+    assert(lvgl_mux);
+
+    ESP_LOGI(LCD_TAG, "Create LVGL task");
+    xTaskCreate(lvgl_port_task, "LVGL", LVGL_TASK_STACK_SIZE, NULL, LVGL_TASK_PRIORITY, NULL);
+}
+
+static void render()
+{
+    if (lvgl_lock(-1))
+    {
+        uint16_t B = lv_rand(0, 31);
+        uint16_t G = lv_rand(0, 63);
+        uint16_t R = lv_rand(0, 31);
+        bg_color.ch = {.blue = B, .green = G, .red = R};
+        lv_style_set_bg_color(&bg_style, bg_color);
+        lv_obj_invalidate(lv_scr_act());
+        lvgl_unlock();
+    }
+}
+
+static void init_graphics()
+{
+    LV_IMG_DECLARE(img_rgb565_palette_argb);
+    lv_obj_t *img = lv_img_create(lv_scr_act());
+    ta1 = lv_textarea_create(lv_scr_act());
+
+    if (lvgl_lock(-1))
+    {
+        lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
+        lv_img_set_src(img, &img_rgb565_palette_argb);
+        lv_style_init(&bg_style);
+        lv_style_set_bg_color(&bg_style, bg_color);
+        lv_obj_add_style(lv_scr_act(), &bg_style, LV_OPA_TRANSP);
+
+        lv_obj_set_size(ta1, 50, 40);
+        lv_obj_align(ta1, LV_ALIGN_TOP_LEFT, 0, 0);
+
+        lvgl_unlock();
+    }
+}
+
+static void periodic_timer_callback(void *arg)
+{
+    // periodic timer to calcualte fps
+    lv_textarea_set_text(ta1, buffer);
+    snprintf(buffer, sizeof(buffer), "%d", cnt);
+    cnt = 0;
+
+    if (change_bg_color)
+    {
+        render();
+        change_bg_color = false;
+    }
+    else
+    {
+        change_bg_color = true;
+    }
+    // int64_t time_since_boot = esp_timer_get_time();
+    // ESP_LOGI(LCD_TAG, "Periodic timer called, time since boot: %lld us", time_since_boot);
+}
+
 extern "C" void app_main()
 {
     ESP_LOGI(USB_TAG, "Create usb_lib_task to initialize USB Host library");
@@ -339,7 +527,7 @@ extern "C" void app_main()
     assert(usb_hid_task_created == pdTRUE);
     ulTaskNotifyTake(false, 1000); // Wait for notification from init_usb_hid to proceed
 
-    //configure_led();
+    configure_led();
 
     ESP_ERROR_CHECK(init_sdcard());
     print_sdcard_info();
@@ -347,13 +535,33 @@ extern "C" void app_main()
 
     // play the wav file
     ESP_ERROR_CHECK(play_wav(WAV_FILE));
+
+    ESP_LOGI(LCD_TAG, "Create semaphores");
+    sem_vsync_end = xSemaphoreCreateBinary();
+    assert(sem_vsync_end);
+    sem_gui_ready = xSemaphoreCreateBinary();
+    assert(sem_gui_ready);
+    sem_fps_sync = xSemaphoreCreateBinary();
+
     init_rgb_lcd();
+    init_lvgl_lib();
+    init_graphics();
+
+    // a periodic timer to calculate fps.
+    const esp_timer_create_args_t periodic_timer_args = {
+        .callback = &periodic_timer_callback,
+        .name = "periodic"};
+    esp_timer_handle_t periodic_timer;
+    ESP_ERROR_CHECK(esp_timer_create(&periodic_timer_args, &periodic_timer));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_timer, 1000000));
+    ESP_LOGI(LCD_TAG, "Started timer, time since boot: %lld us", esp_timer_get_time());
+
     i2s_del_channel(tx_handle); // delete the channel
 
     while (1)
     {
         /*
-        gpio_set_level(GPIO_NUM_38, s_led_state);
+        gpio_set_level(GPIO_NUM_46, s_led_state);
         s_led_state = !s_led_state;
         vTaskDelay(1000 / portTICK_PERIOD_MS);
         */
@@ -363,5 +571,7 @@ extern "C" void app_main()
             update(); // advances the game simulation one step. Run AI and physics.
             render(); // draws the game so the player can see what happened.
         */
+        cnt++;
+        xSemaphoreTake(sem_fps_sync, portMAX_DELAY);
     }
 }
