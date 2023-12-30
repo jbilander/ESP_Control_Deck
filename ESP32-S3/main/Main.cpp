@@ -19,6 +19,7 @@
 #include <lvgl.h>
 
 #include "usb_hid_host.h"
+#include "GameScreen.h"
 
 // I2S AUDIO OUT PINMAPPING
 #define I2S_WS_PIN GPIO_NUM_39
@@ -90,25 +91,20 @@ static SemaphoreHandle_t sem_gui_ready;
 static SemaphoreHandle_t sem_vsync_end;
 static SemaphoreHandle_t sem_fps_sync;
 
-// to calculate and display fps, and toggle background color
-char buffer[128];
-static lv_obj_t *ta1;
-static volatile int cnt = 0;
-static volatile bool change_bg_color = true;
-
-// Graphics stuff to display
-static lv_style_t bg_style;
-static lv_color_t bg_color = {.ch = {.blue = 0, .green = 0, .red = 0}};
+GameScreen gamescreen;
 
 // USB Host stuff
 app_event_queue_t evt_queue;
-extern "C" QueueHandle_t create_queue(int queue_length, unsigned int item_size);
-extern "C" void hid_host_device_callback(hid_host_device_handle_t hid_device_handle,
-                                         const hid_host_driver_event_t event,
-                                         void *arg);
-extern "C" void hid_host_device_event(hid_host_device_handle_t hid_device_handle,
-                                      const hid_host_driver_event_t event,
-                                      void *arg);
+extern "C"
+{
+    QueueHandle_t create_queue(int queue_length, unsigned int item_size);
+    void hid_host_device_callback(hid_host_device_handle_t hid_device_handle,
+                                  const hid_host_driver_event_t event,
+                                  void *arg);
+    void hid_host_device_event(hid_host_device_handle_t hid_device_handle,
+                               const hid_host_driver_event_t event,
+                               void *arg);
+}
 
 // I2S stuff
 i2s_chan_handle_t tx_handle;
@@ -459,59 +455,16 @@ static void init_lvgl_lib()
     xTaskCreate(lvgl_port_task, "LVGL", LVGL_TASK_STACK_SIZE, NULL, LVGL_TASK_PRIORITY, NULL);
 }
 
-static void render()
-{
-    if (lvgl_lock(-1))
-    {
-        uint16_t B = lv_rand(0, 31);
-        uint16_t G = lv_rand(0, 63);
-        uint16_t R = lv_rand(0, 31);
-        bg_color.ch = {.blue = B, .green = G, .red = R};
-        lv_style_set_bg_color(&bg_style, bg_color);
-        lv_obj_invalidate(lv_scr_act());
-        lvgl_unlock();
-    }
-}
-
-static void init_graphics()
-{
-    LV_IMG_DECLARE(img_rgb565_palette_argb);
-    lv_obj_t *img = lv_img_create(lv_scr_act());
-    ta1 = lv_textarea_create(lv_scr_act());
-
-    if (lvgl_lock(-1))
-    {
-        lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
-        lv_img_set_src(img, &img_rgb565_palette_argb);
-        lv_style_init(&bg_style);
-        lv_style_set_bg_color(&bg_style, bg_color);
-        lv_obj_add_style(lv_scr_act(), &bg_style, LV_OPA_TRANSP);
-
-        lv_obj_set_size(ta1, 50, 40);
-        lv_obj_align(ta1, LV_ALIGN_TOP_LEFT, 0, 0);
-
-        lvgl_unlock();
-    }
-}
-
 static void periodic_timer_callback(void *arg)
 {
-    // periodic timer to calcualte fps
-    lv_textarea_set_text(ta1, buffer);
-    snprintf(buffer, sizeof(buffer), "%d", cnt);
-    cnt = 0;
+    gamescreen.updateTextAreaFPS();
+    gamescreen.resetFpsCounter();
 
-    if (change_bg_color)
-    {
-        render();
-        change_bg_color = false;
-    }
-    else
-    {
-        change_bg_color = true;
-    }
-    // int64_t time_since_boot = esp_timer_get_time();
-    // ESP_LOGI(LCD_TAG, "Periodic timer called, time since boot: %lld us", time_since_boot);
+    uint16_t R = lv_rand(0, 31);
+    uint16_t G = lv_rand(0, 63);
+    uint16_t B = lv_rand(0, 31);
+
+    gamescreen.setBackgroundColor(R, G, B);
 }
 
 extern "C" void app_main()
@@ -543,7 +496,7 @@ extern "C" void app_main()
 
     init_rgb_lcd();
     init_lvgl_lib();
-    init_graphics();
+    gamescreen.init();
 
     // a periodic timer to calculate fps.
     const esp_timer_create_args_t periodic_timer_args = {
@@ -552,7 +505,6 @@ extern "C" void app_main()
     esp_timer_handle_t periodic_timer;
     ESP_ERROR_CHECK(esp_timer_create(&periodic_timer_args, &periodic_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_timer, 1000000));
-    ESP_LOGI(LCD_TAG, "Started timer, time since boot: %lld us", esp_timer_get_time());
 
     i2s_del_channel(tx_handle); // delete the channel
 
@@ -569,7 +521,7 @@ extern "C" void app_main()
             update(); // advances the game simulation one step. Run AI and physics.
             render(); // draws the game so the player can see what happened.
         */
-        cnt++;
+        gamescreen.incrementFpsCounter();
         xSemaphoreTake(sem_fps_sync, portMAX_DELAY);
     }
 }
