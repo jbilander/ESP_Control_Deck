@@ -1,11 +1,12 @@
-#pragma once
+#include <freertos/FreeRTOS.h>
+#include <freertos/queue.h>
+#include <usb/usb_host.h>
+#include <usb/hid_host.h>
+#include <usb/hid_usage_keyboard.h>
+#include <usb/hid_usage_mouse.h>
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
-#include "usb/usb_host.h"
-#include "usb/hid_host.h"
-#include "usb/hid_usage_keyboard.h"
-#include "usb/hid_usage_mouse.h"
+static const char *USB_HID_HOST_TAG = "USB_HID_HOST";
+static QueueHandle_t app_event_queue;
 
 /**
  * @brief APP event group

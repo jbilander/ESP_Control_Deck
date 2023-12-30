@@ -1,25 +1,24 @@
-#pragma once
-
 #include <stdio.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/semphr.h"
-#include "freertos/event_groups.h"
-#include "freertos/queue.h"
-#include "esp_timer.h"
-#include "esp_lcd_panel_ops.h"
-#include "esp_lcd_panel_rgb.h"
-#include "driver/gpio.h"
-#include "esp_err.h"
-#include "esp_log.h"
-#include "usb/usb_host.h"
-#include "usb/hid_host.h"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <freertos/semphr.h>
+#include <freertos/event_groups.h>
+#include <freertos/queue.h>
+#include <esp_timer.h>
+#include <esp_lcd_panel_ops.h>
+#include <esp_lcd_panel_rgb.h>
+#include <driver/gpio.h>
+#include <esp_err.h>
+#include <esp_log.h>
+#include <usb/usb_host.h>
+#include <usb/hid_host.h>
+#include <driver/i2s_std.h>
+#include <driver/sdmmc_host.h>
+#include <sdmmc_cmd.h>
+#include <esp_vfs_fat.h>
+#include <lvgl.h>
+
 #include "usb_hid_host.h"
-#include "driver/i2s_std.h"
-#include "driver/sdmmc_host.h"
-#include "sdmmc_cmd.h"
-#include "esp_vfs_fat.h"
-#include "lvgl.h"
 
 // I2S AUDIO OUT PINMAPPING
 #define I2S_WS_PIN GPIO_NUM_39
@@ -102,7 +101,6 @@ static lv_style_t bg_style;
 static lv_color_t bg_color = {.ch = {.blue = 0, .green = 0, .red = 0}};
 
 // USB Host stuff
-QueueHandle_t app_event_queue;
 app_event_queue_t evt_queue;
 extern "C" QueueHandle_t create_queue(int queue_length, unsigned int item_size);
 extern "C" void hid_host_device_callback(hid_host_device_handle_t hid_device_handle,

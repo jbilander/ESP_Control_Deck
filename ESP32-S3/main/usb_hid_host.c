@@ -1,8 +1,5 @@
+#include <esp_log.h>
 #include "usb_hid_host.h"
-#include "esp_log.h"
-
-static const char *USB_HID_HOST_TAG = "USB_HID_HOST";
-static QueueHandle_t app_event_queue;
 
 /**
  * @brief HID Host Device callback
@@ -86,7 +83,7 @@ static void hid_host_mouse_report_callback(const uint8_t *const data, const int 
     // Calculate absolute position from displacement
     x_pos += mouse_report->x_displacement;
     y_pos += mouse_report->y_displacement;
-    wheel_pos += mouse_report->scrollwheel;
+    //wheel_pos += mouse_report->scrollwheel;
 
     hid_print_new_device_report_header(HID_PROTOCOL_MOUSE);
 
