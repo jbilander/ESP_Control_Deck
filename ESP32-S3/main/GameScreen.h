@@ -7,6 +7,7 @@
 #include <freertos/task.h>
 #include <esp_log.h>
 #include <lvgl.h>
+#include "FlappyBird.h"
 
 class GameScreen
 {
@@ -16,12 +17,14 @@ private:
   lv_color_t bg_color = {.ch = {.blue = 0, .green = 0, .red = 0}};
   volatile int fps_count = 0;
   char buffer[8]; // buffer to contain fps text.
+  FlappyBird *bird;
 
 protected:
 public:
   GameScreen();
   ~GameScreen();
   void init();
+  void update();
   int getFpsCounter();
   void resetFpsCounter();
   void incrementFpsCounter();
