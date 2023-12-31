@@ -122,12 +122,6 @@ void print_sdcard_info(void)
     ESP_LOGI(SDIO_TAG, "Read Block Length: %u", card->csd.read_block_len);
 }
 
-static void configure_led(void)
-{
-    gpio_reset_pin(GPIO_NUM_46);
-    gpio_set_direction(GPIO_NUM_46, GPIO_MODE_OUTPUT);
-}
-
 static bool on_vsync_event(esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t *event_data, void *user_data)
 {
     BaseType_t high_task_awoken = pdFALSE;
@@ -459,12 +453,6 @@ static void periodic_timer_callback(void *arg)
 {
     gamescreen.updateTextAreaFPS();
     gamescreen.resetFpsCounter();
-
-    uint16_t R = lv_rand(0, 31);
-    uint16_t G = lv_rand(0, 63);
-    uint16_t B = lv_rand(0, 31);
-
-    gamescreen.setBackgroundColor(R, G, B);
 }
 
 extern "C" void app_main()
@@ -478,14 +466,12 @@ extern "C" void app_main()
     assert(usb_hid_task_created == pdTRUE);
     ulTaskNotifyTake(false, 1000); // Wait for notification from init_usb_hid to proceed
 
-    configure_led();
-
     ESP_ERROR_CHECK(init_sdcard());
     print_sdcard_info();
     i2s_setup();
 
     // play the wav file
-    ESP_ERROR_CHECK(play_wav(WAV_FILE));
+    // ESP_ERROR_CHECK(play_wav(WAV_FILE));
 
     ESP_LOGI(LCD_TAG, "Create semaphores");
     sem_vsync_end = xSemaphoreCreateBinary();
@@ -510,17 +496,13 @@ extern "C" void app_main()
 
     while (1)
     {
-        /*
-        gpio_set_level(GPIO_NUM_46, s_led_state);
-        s_led_state = !s_led_state;
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        */
-
         /* Gameloop
             processInput(); //handles any user input that has happened since the last call.
             update(); // advances the game simulation one step. Run AI and physics.
             render(); // draws the game so the player can see what happened.
         */
+
+        gamescreen.update();
         gamescreen.incrementFpsCounter();
         xSemaphoreTake(sem_fps_sync, portMAX_DELAY);
     }
