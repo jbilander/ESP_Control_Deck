@@ -2,7 +2,8 @@
 
 GameScreen::GameScreen()
 {
-  bird = new FlappyBird();
+  flappy_bird = new FlappyBird();
+  flappy_bird->init();
 }
 
 GameScreen::~GameScreen()
@@ -22,7 +23,7 @@ void GameScreen::init()
 
 void GameScreen::update()
 {
-  bird->flap();
+  flappy_bird->onUpdate();
 }
 
 int GameScreen::getFpsCounter()
