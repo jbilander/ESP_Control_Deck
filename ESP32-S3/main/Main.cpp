@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -442,12 +443,6 @@ extern "C" void app_main()
 
     while (1)
     {
-        /* Gameloop
-            processInput(); //handles any user input that has happened since the last call.
-            update(); // advances the game simulation one step. Run AI and physics.
-            render(); // draws the game so the player can see what happened.
-        */
-
         gamescreen.update();
         gamescreen.incrementFpsCounter();
         xSemaphoreTake(sem_fps_sync, portMAX_DELAY);
