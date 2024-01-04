@@ -2,8 +2,6 @@
 
 GameScreen::GameScreen()
 {
-  flappy_bird = new FlappyBird();
-  flappy_bird->init();
 }
 
 GameScreen::~GameScreen()
@@ -12,9 +10,7 @@ GameScreen::~GameScreen()
 
 void GameScreen::init()
 {
-  lv_style_init(&bg_style);
-  lv_style_set_bg_color(&bg_style, bg_color);
-  lv_obj_add_style(lv_scr_act(), &bg_style, LV_OPA_TRANSP);
+  flappy_bird = new FlappyBird();
 
   textarea_fps = lv_textarea_create(lv_scr_act());
   lv_obj_set_size(textarea_fps, 50, 40);
@@ -45,11 +41,4 @@ void GameScreen::updateTextAreaFPS()
 {
   snprintf(buffer, sizeof(buffer), "%d", fps_count);
   lv_textarea_set_text(textarea_fps, buffer);
-}
-
-void GameScreen::setBackgroundColor(uint16_t R, uint16_t G, uint16_t B)
-{
-  bg_color.ch = {.blue = B, .green = G, .red = R};
-  lv_style_set_bg_color(&bg_style, bg_color);
-  lv_obj_invalidate(lv_scr_act());
 }
