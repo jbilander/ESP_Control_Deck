@@ -1,3 +1,6 @@
+#ifndef MAIN_H_FILE
+#define MAIN_H_FILE
+
 // I2S AUDIO OUT PINMAPPING
 #define I2S_WS_PIN GPIO_NUM_39
 #define I2S_BCLK_PIN GPIO_NUM_38
@@ -51,3 +54,5 @@
 #define LVGL_TASK_MIN_DELAY_MS 1
 #define LVGL_TASK_STACK_SIZE (4 * 1024)
 #define LVGL_TASK_PRIORITY 2
+
+#endif /* MAIN_H_FILE */
