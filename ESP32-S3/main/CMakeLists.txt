@@ -1,2 +1,3 @@
-idf_component_register(SRCS "resources/img/background_houses.c" "usb_hid_host.c" "Main.cpp" "GameScreen.cpp" "FlappyBird.cpp"
+idf_component_register(SRCS "resources/img/background_houses.c" "resources/img/flappy1.c" "resources/img/flappy2.c" 
+                            "resources/img/flappy3.c" "usb_hid_host.c" "Main.cpp" "GameScreen.cpp" "FlappyBird.cpp"
                     INCLUDE_DIRS "")
