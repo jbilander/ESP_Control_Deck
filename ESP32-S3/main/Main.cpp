@@ -440,11 +440,17 @@ extern "C" void app_main()
     ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_timer, 1000000));
 
     i2s_del_channel(tx_handle); // delete the channel
+    int speed_cap = 0;
 
     while (1)
     {
         gamescreen.update();
         gamescreen.incrementFpsCounter();
-        xSemaphoreTake(sem_fps_sync, portMAX_DELAY);
+        if (speed_cap == 2)
+        {
+            xSemaphoreTake(sem_fps_sync, portMAX_DELAY);
+            speed_cap = 0;
+        }
+        speed_cap++;
     }
 }
