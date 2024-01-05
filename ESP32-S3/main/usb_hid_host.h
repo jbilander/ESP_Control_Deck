@@ -1,3 +1,6 @@
+#ifndef USB_HID_HOST_H_FILE
+#define USB_HID_HOST_H_FILE
+
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <usb/usb_host.h>
@@ -7,6 +10,7 @@
 
 static const char *USB_HID_HOST_TAG = "USB_HID_HOST";
 static QueueHandle_t app_event_queue;
+static hid_mouse_input_report_boot_t mouse_input_report;
 
 /**
  * @brief APP event group
@@ -47,3 +51,5 @@ static const char *hid_proto_name_str[] = {
     "NONE",
     "KEYBOARD",
     "MOUSE"};
+
+#endif /* USB_HID_HOST_H_FILE */

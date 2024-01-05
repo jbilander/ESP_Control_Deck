@@ -27,6 +27,11 @@ void hid_host_device_callback(hid_host_device_handle_t hid_device_handle,
     }
 }
 
+hid_mouse_input_report_boot_t get_mouse_report()
+{
+    return mouse_input_report;
+}
+
 QueueHandle_t create_queue(int queue_length, unsigned int item_size)
 {
     return app_event_queue = xQueueCreate(queue_length, item_size);
@@ -75,24 +80,11 @@ static void hid_host_mouse_report_callback(const uint8_t *const data, const int 
     {
         return;
     }
-
-    static int x_pos = 0;
-    static int y_pos = 0;
-    static int wheel_pos = 0;
-
-    // Calculate absolute position from displacement
-    x_pos += mouse_report->x_displacement;
-    y_pos += mouse_report->y_displacement;
-    //wheel_pos += mouse_report->scrollwheel;
-
-    hid_print_new_device_report_header(HID_PROTOCOL_MOUSE);
-
-    printf("X: %06d\tY: %06d\tWheel: %06d\t|%c|%c|%c|\r",
-           x_pos, y_pos, wheel_pos,
-           (mouse_report->buttons.button1 ? 'o' : ' '),
-           (mouse_report->buttons.button3 ? 'o' : ' '),
-           (mouse_report->buttons.button2 ? 'o' : ' '));
-    fflush(stdout);
+    mouse_input_report.buttons.button1 = mouse_report->buttons.button1;
+    mouse_input_report.buttons.button2 = mouse_report->buttons.button2;
+    mouse_input_report.buttons.button2 = mouse_report->buttons.button3;
+    mouse_input_report.x_displacement = mouse_report->x_displacement;
+    mouse_input_report.y_displacement = mouse_report->y_displacement;
 }
 
 /**

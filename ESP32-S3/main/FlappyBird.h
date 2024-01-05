@@ -5,7 +5,10 @@
 #include <esp_timer.h>
 #include <list>
 #include <lvgl.h>
+#include <usb/hid_usage_mouse.h>
 #include "Main.h"
+
+extern "C" hid_mouse_input_report_boot_t get_mouse_report();
 
 // Background components
 LV_IMG_DECLARE(background_houses);
