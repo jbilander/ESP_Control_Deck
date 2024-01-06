@@ -31,6 +31,15 @@ static const void *bird_anim_imgs[3] = {
     &flappy3,
 };
 
+static const void *bird_anim_flappy23[2] = {
+    &flappy2,
+    &flappy3,
+};
+
+static const void *bird_anim_flappy2[1] = {
+    &flappy2
+};
+
 class FlappyBird
 {
 private:
@@ -39,13 +48,14 @@ private:
     lv_obj_t *img_flappy2;
     lv_obj_t *img_flappy3;
 
-    float section_width;
-    std::list<int> section_list;
-
-    bool has_collided = false;
-    bool reset_game = false;
+    float gravity;
+    bool has_collided;
+    bool reset_game;
+    bool run_game;
+    bool run_once = true;
 
 protected:
+   void moveBird();
 public:
     FlappyBird();
     ~FlappyBird();
