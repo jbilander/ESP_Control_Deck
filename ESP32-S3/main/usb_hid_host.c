@@ -82,7 +82,7 @@ static void hid_host_mouse_report_callback(const uint8_t *const data, const int 
     }
     mouse_input_report.buttons.button1 = mouse_report->buttons.button1;
     mouse_input_report.buttons.button2 = mouse_report->buttons.button2;
-    mouse_input_report.buttons.button2 = mouse_report->buttons.button3;
+    mouse_input_report.buttons.button3 = mouse_report->buttons.button3;
     mouse_input_report.x_displacement = mouse_report->x_displacement;
     mouse_input_report.y_displacement = mouse_report->y_displacement;
 }
