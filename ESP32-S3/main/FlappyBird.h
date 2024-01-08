@@ -24,38 +24,36 @@ static lv_style_t style_rect;
 LV_IMG_DECLARE(flappy1)
 LV_IMG_DECLARE(flappy2)
 LV_IMG_DECLARE(flappy3)
+LV_IMG_DECLARE(flappy1_rotated)
+LV_IMG_DECLARE(flappy2_rotated)
+LV_IMG_DECLARE(flappy3_rotated)
 
-static const void *bird_anim_imgs[3] = {
+static const void *bird_anim_flappy123[3] = {
     &flappy1,
     &flappy2,
     &flappy3,
 };
-
-static const void *bird_anim_flappy23[2] = {
-    &flappy2,
-    &flappy3,
+static const void *bird_anim_flappy123_rotated[3] = {
+    &flappy1_rotated,
+    &flappy2_rotated,
+    &flappy3_rotated,
 };
-
 static const void *bird_anim_flappy2[1] = {
-    &flappy2
-};
+    &flappy2};
 
 class FlappyBird
 {
 private:
     lv_obj_t *bird;
-    lv_obj_t *img_flappy1;
-    lv_obj_t *img_flappy2;
-    lv_obj_t *img_flappy3;
-
+    bool left_mouse_btn_released;
     float gravity;
     bool has_collided;
     bool reset_game;
     bool run_game;
-    bool run_once = true;
 
 protected:
-   void moveBird();
+    void moveBird();
+
 public:
     FlappyBird();
     ~FlappyBird();

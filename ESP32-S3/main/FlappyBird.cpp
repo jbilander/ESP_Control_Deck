@@ -34,6 +34,7 @@ void FlappyBird::onUpdate()
         reset_game = false;
         run_game = false;
         gravity = {0.f};
+        left_mouse_btn_released = true;
         lv_obj_set_pos(bird, LCD_H_RES / 3, LCD_V_RES / 2 - flappy1.header.h / 2);
         lv_animimg_set_src(bird, (const void **)bird_anim_flappy2, 1);
         lv_animimg_set_duration(bird, 300);
@@ -60,8 +61,6 @@ void FlappyBird::onUpdate()
             // Wait for left mouse button click to start game
             if (get_mouse_report().buttons.button1)
             {
-                lv_animimg_set_src(bird, (const void **)bird_anim_imgs, 3);
-                lv_animimg_start(bird);
                 run_game = true;
             }
         }
@@ -70,24 +69,31 @@ void FlappyBird::onUpdate()
 
 void FlappyBird::moveBird()
 {
-    gravity += 0.5f;
-
-    if (lv_obj_get_y(bird) + gravity <= LCD_V_RES - flappy1.header.h)
+    if (get_mouse_report().buttons.button1 && left_mouse_btn_released)
     {
-        lv_obj_set_y(bird, lv_obj_get_y(bird) + gravity);
-        if (run_once)
-        {
-            lv_animimg_set_src(bird, (const void **)bird_anim_flappy23, 2);
-            lv_animimg_start(bird);
-            run_once = false;
-        }
+        gravity = -8.f;
+        left_mouse_btn_released = false;
+        lv_animimg_set_src(bird, (const void **)bird_anim_flappy123_rotated, 3);
+        lv_animimg_start(bird);
     }
     else
     {
-        lv_animimg_set_src(bird, (const void **)bird_anim_flappy2, 1);
-        lv_animimg_start(bird);
-        lv_obj_set_y(bird, LCD_V_RES - flappy1.header.h / 2);
-        has_collided = true;
-        run_once = true;
+        left_mouse_btn_released = !get_mouse_report().buttons.button1;
+
+        if (lv_obj_get_y(bird) + gravity <= LCD_V_RES - flappy1.header.h)
+        {
+            lv_obj_set_y(bird, lv_obj_get_y(bird) + gravity);
+            if (gravity == 0)
+            {
+                lv_animimg_set_src(bird, (const void **)bird_anim_flappy123, 3);
+            }
+        }
+        else
+        {
+            lv_animimg_set_src(bird, (const void **)bird_anim_flappy2, 1);
+            lv_obj_set_y(bird, LCD_V_RES - flappy1.header.h / 2);
+            has_collided = true;
+        }
+        gravity += 0.5f;
     }
 }
