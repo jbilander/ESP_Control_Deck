@@ -3,7 +3,8 @@
 
 #include <esp_log.h>
 #include <esp_timer.h>
-#include <list>
+#include <ctime>
+#include <vector>
 #include <lvgl.h>
 #include <usb/hid_usage_mouse.h>
 #include "Main.h"
@@ -20,6 +21,10 @@ static lv_obj_t *bg_img;
 static lv_obj_t *bg_bottom_rect;
 static lv_style_t style_rect;
 
+// Pipe
+LV_IMG_DECLARE(pipe_top)
+LV_IMG_DECLARE(pipe_bottom)
+
 // Birdie
 LV_IMG_DECLARE(flappy1)
 LV_IMG_DECLARE(flappy2)
@@ -33,10 +38,9 @@ static const void *bird_anim_flappy123[3] = {
     &flappy2,
     &flappy3,
 };
-static const void *bird_anim_flappy123_rotated[3] = {
+static const void *bird_anim_flappy23_rotated[2] = {
     &flappy1_rotated,
     &flappy2_rotated,
-    &flappy3_rotated,
 };
 static const void *bird_anim_flappy2[1] = {
     &flappy2};
@@ -45,6 +49,7 @@ class FlappyBird
 {
 private:
     lv_obj_t *bird;
+    std::vector<lv_obj_t *> pipes;
     bool left_mouse_btn_released;
     float gravity;
     bool has_collided;
@@ -53,6 +58,7 @@ private:
 
 protected:
     void moveBird();
+    void movePipes();
 
 public:
     FlappyBird();

@@ -17,6 +17,50 @@ FlappyBird::FlappyBird()
     lv_obj_align(bg_bottom_rect, LV_ALIGN_BOTTOM_LEFT, 0, 0);
     lv_obj_align_to(bg_img, bg_bottom_rect, LV_ALIGN_OUT_TOP_LEFT, 0, 0);
 
+    lv_obj_t *pipe = lv_img_create(lv_scr_act());
+    lv_obj_set_size(pipe, 52, 80);
+    lv_obj_set_pos(pipe, 300, 400);
+    lv_img_set_src(pipe, &pipe_bottom);
+
+    // Pipes
+    /*
+    for (int i = 0; i < 4; i++)
+    {
+        //pipe image is 320 x 52 px
+        pipes.push_back(lv_img_create(lv_scr_act()));
+        if (i == 0)
+        {
+            lv_obj_set_pos(pipes[i], 300, -175);
+            lv_img_set_src(pipes[i], &pipe_top);
+        }
+        if (i == 1)
+        {
+            lv_obj_set_pos(pipes[i], 300, 275);
+            lv_img_set_src(pipes[i], &pipe_bottom);
+        }
+        if (i == 2)
+        {
+            lv_obj_set_pos(pipes[i], 500, -75);
+            lv_img_set_src(pipes[i], &pipe_top);
+        }
+        if (i == 3)
+        {
+            lv_obj_set_pos(pipes[i], 500, 375);
+            lv_img_set_src(pipes[i], &pipe_bottom);
+        }
+    }
+    */
+
+    /*
+    for (std::size_t i{}; i < pipes.size(); i++)
+    {
+        lv_obj_t *pipe_img  = lv_img_create(lv_scr_act());
+        lv_img_set_src(pipe_img, &pipe);
+        pipes.push_back(pipe_img);
+        lv_obj_set_pos(pipe_img, i * 100, i * 100);
+    }
+    */
+
     // Add birdie
     bird = lv_animimg_create(lv_scr_act());
     reset_game = true;
@@ -61,6 +105,8 @@ void FlappyBird::onUpdate()
             // Wait for left mouse button click to start game
             if (get_mouse_report().buttons.button1)
             {
+                lv_animimg_set_src(bird, (const void **)bird_anim_flappy23_rotated, 2);
+                lv_animimg_start(bird);
                 run_game = true;
             }
         }
@@ -73,8 +119,7 @@ void FlappyBird::moveBird()
     {
         gravity = -8.f;
         left_mouse_btn_released = false;
-        lv_animimg_set_src(bird, (const void **)bird_anim_flappy123_rotated, 3);
-        lv_animimg_start(bird);
+        lv_animimg_set_src(bird, (const void **)bird_anim_flappy23_rotated, 2);
     }
     else
     {
@@ -96,4 +141,25 @@ void FlappyBird::moveBird()
         }
         gravity += 0.5f;
     }
+}
+
+uint32_t my_lv_rand(uint32_t min, uint32_t max)
+{
+    // static uint32_t a = 0x1234ABCD; /*Seed*/
+    std::srand(std::time(nullptr));
+    uint32_t a = std::rand();
+
+    /*Algorithm "xor" from p. 4 of Marsaglia, "Xorshift RNGs"*/
+    uint32_t x = a;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    a = x;
+
+    return (a % (max - min + 1)) + min;
+}
+
+void FlappyBird::movePipes()
+{
+    printf("RANDOM: %lu\n", my_lv_rand(100, 200));
 }
