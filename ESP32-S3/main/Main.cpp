@@ -36,7 +36,7 @@ static lv_disp_drv_t disp_drv;      // display driver structure, contains callba
 static SemaphoreHandle_t lvgl_mux;
 static SemaphoreHandle_t sem_gui_ready;
 static SemaphoreHandle_t sem_vsync_end;
-static SemaphoreHandle_t sem_fps_sync;
+static SemaphoreHandle_t sem_gameloop_sync;
 
 GameScreen gamescreen;
 
@@ -77,7 +77,7 @@ static bool on_vsync_event(esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel
     {
         xSemaphoreGiveFromISR(sem_vsync_end, &high_task_awoken);
     }
-    xSemaphoreGive(sem_fps_sync);
+    xSemaphoreGive(sem_gameloop_sync);
 
     return high_task_awoken == pdTRUE;
 }
@@ -365,6 +365,8 @@ static void init_lvgl_lib()
     void *buf1, *buf2;
     ESP_LOGI(LCD_TAG, "Use frame buffers as LVGL draw buffers");
     ESP_ERROR_CHECK(esp_lcd_rgb_panel_get_frame_buffer(panel_handle, 2, &buf1, &buf2));
+    buf1 = heap_caps_malloc(LCD_H_RES * LCD_V_RES * (LCD_DATA_WIDTH / 8), MALLOC_CAP_SPIRAM);
+    buf2 = heap_caps_malloc(LCD_H_RES * LCD_V_RES * (LCD_DATA_WIDTH / 8), MALLOC_CAP_SPIRAM);
 
     // initialize LVGL draw buffers
     lv_disp_draw_buf_init(&disp_buf, buf1, buf2, LCD_H_RES * LCD_V_RES);
@@ -425,7 +427,8 @@ extern "C" void app_main()
     assert(sem_vsync_end);
     sem_gui_ready = xSemaphoreCreateBinary();
     assert(sem_gui_ready);
-    sem_fps_sync = xSemaphoreCreateBinary();
+    sem_gameloop_sync = xSemaphoreCreateBinary();
+    assert(sem_gameloop_sync);
 
     init_rgb_lcd();
     init_lvgl_lib();
@@ -446,9 +449,9 @@ extern "C" void app_main()
     {
         gamescreen.update();
         gamescreen.incrementFpsCounter();
-        if (speed_cap == 2)
+        if (speed_cap == 4)
         {
-            xSemaphoreTake(sem_fps_sync, portMAX_DELAY);
+            xSemaphoreTake(sem_gameloop_sync, portMAX_DELAY);
             speed_cap = 0;
         }
         speed_cap++;

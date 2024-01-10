@@ -17,13 +17,14 @@ FlappyBird::FlappyBird()
     lv_obj_align(bg_bottom_rect, LV_ALIGN_BOTTOM_LEFT, 0, 0);
     lv_obj_align_to(bg_img, bg_bottom_rect, LV_ALIGN_OUT_TOP_LEFT, 0, 0);
 
+    /*
     lv_obj_t *pipe = lv_img_create(lv_scr_act());
     lv_obj_set_size(pipe, 52, 80);
     lv_obj_set_pos(pipe, 300, 400);
     lv_img_set_src(pipe, &pipe_bottom);
+    */
 
     // Pipes
-    /*
     for (int i = 0; i < 4; i++)
     {
         //pipe image is 320 x 52 px
@@ -49,7 +50,6 @@ FlappyBird::FlappyBird()
             lv_img_set_src(pipes[i], &pipe_bottom);
         }
     }
-    */
 
     /*
     for (std::size_t i{}; i < pipes.size(); i++)
@@ -117,7 +117,7 @@ void FlappyBird::moveBird()
 {
     if (get_mouse_report().buttons.button1 && left_mouse_btn_released)
     {
-        gravity = -8.f;
+        gravity = -12.f;
         left_mouse_btn_released = false;
         lv_animimg_set_src(bird, (const void **)bird_anim_flappy23_rotated, 2);
     }
