@@ -365,8 +365,8 @@ static void init_lvgl_lib()
     void *buf1, *buf2;
     ESP_LOGI(LCD_TAG, "Use frame buffers as LVGL draw buffers");
     ESP_ERROR_CHECK(esp_lcd_rgb_panel_get_frame_buffer(panel_handle, 2, &buf1, &buf2));
-    buf1 = heap_caps_malloc(LCD_H_RES * LCD_V_RES * (LCD_DATA_WIDTH / 8), MALLOC_CAP_SPIRAM);
-    buf2 = heap_caps_malloc(LCD_H_RES * LCD_V_RES * (LCD_DATA_WIDTH / 8), MALLOC_CAP_SPIRAM);
+    //buf1 = heap_caps_malloc(LCD_H_RES * LCD_V_RES * (LCD_DATA_WIDTH / 8), MALLOC_CAP_SPIRAM);
+    //buf2 = heap_caps_malloc(LCD_H_RES * LCD_V_RES * (LCD_DATA_WIDTH / 8), MALLOC_CAP_SPIRAM);
 
     // initialize LVGL draw buffers
     lv_disp_draw_buf_init(&disp_buf, buf1, buf2, LCD_H_RES * LCD_V_RES);
@@ -400,8 +400,8 @@ static void init_lvgl_lib()
 
 static void periodic_timer_callback(void *arg)
 {
-    gamescreen.updateTextAreaFPS();
-    gamescreen.resetFpsCounter();
+    //gamescreen.updateTextAreaFPS();
+    //gamescreen.resetFpsCounter();
 }
 
 extern "C" void app_main()

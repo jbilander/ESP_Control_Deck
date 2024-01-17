@@ -12,9 +12,9 @@ void GameScreen::init()
 {
   flappy_bird = new FlappyBird();
 
-  textarea_fps = lv_textarea_create(lv_scr_act());
-  lv_obj_set_size(textarea_fps, 50, 40);
-  lv_obj_align(textarea_fps, LV_ALIGN_TOP_LEFT, 0, 0);
+  //textarea_fps = lv_textarea_create(lv_scr_act());
+  //lv_obj_set_size(textarea_fps, 50, 40);
+  //lv_obj_align(textarea_fps, LV_ALIGN_TOP_LEFT, 0, 0);
 }
 
 void GameScreen::update()
