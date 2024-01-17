@@ -3,8 +3,8 @@
 
 #include <esp_log.h>
 #include <esp_timer.h>
-#include <ctime>
 #include <vector>
+#include <deque>
 #include <lvgl.h>
 #include <usb/hid_usage_mouse.h>
 #include "Main.h"
@@ -49,9 +49,12 @@ class FlappyBird
 {
 private:
     lv_obj_t *bird;
-    std::vector<lv_obj_t *> pipes;
+    std::vector<lv_obj_t *> pipe_storage;
+    std::deque<lv_obj_t *> active_pipes;
+    std::vector<bool> move_status;
     bool left_mouse_btn_released;
     float gravity;
+    int pipe_velocity;
     bool has_collided;
     bool reset_game;
     bool run_game;
@@ -59,6 +62,7 @@ private:
 protected:
     void moveBird();
     void movePipes();
+    void addSection();
 
 public:
     FlappyBird();

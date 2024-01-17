@@ -17,52 +17,34 @@ FlappyBird::FlappyBird()
     lv_obj_align(bg_bottom_rect, LV_ALIGN_BOTTOM_LEFT, 0, 0);
     lv_obj_align_to(bg_img, bg_bottom_rect, LV_ALIGN_OUT_TOP_LEFT, 0, 0);
 
-    /*
-    lv_obj_t *pipe = lv_img_create(lv_scr_act());
-    lv_obj_set_size(pipe, 52, 80);
-    lv_obj_set_pos(pipe, 300, 400);
-    lv_img_set_src(pipe, &pipe_bottom);
-    */
+    static lv_style_t style;
+    lv_style_init(&style);
+    lv_style_set_bg_opa(&style, LV_OPA_TRANSP);
 
-    // Pipes
-    for (int i = 0; i < 4; i++)
+    // Fill pipe storage
+    for (int i = 0; i < 5; i++)
     {
-        //pipe image is 320 x 52 px
-        pipes.push_back(lv_img_create(lv_scr_act()));
-        if (i == 0)
-        {
-            lv_obj_set_pos(pipes[i], 300, -175);
-            lv_img_set_src(pipes[i], &pipe_top);
-        }
-        if (i == 1)
-        {
-            lv_obj_set_pos(pipes[i], 300, 275);
-            lv_img_set_src(pipes[i], &pipe_bottom);
-        }
-        if (i == 2)
-        {
-            lv_obj_set_pos(pipes[i], 500, -75);
-            lv_img_set_src(pipes[i], &pipe_top);
-        }
-        if (i == 3)
-        {
-            lv_obj_set_pos(pipes[i], 500, 375);
-            lv_img_set_src(pipes[i], &pipe_bottom);
-        }
-    }
+        lv_obj_t *section = lv_canvas_create(lv_scr_act());
+        lv_obj_set_scrollbar_mode(section, LV_SCROLLBAR_MODE_OFF);
+        lv_obj_set_size(section, pipe_top.header.w, LCD_V_RES);
+        lv_obj_add_style(section, &style, 0);
+        move_status.push_back(true);
 
-    /*
-    for (std::size_t i{}; i < pipes.size(); i++)
-    {
-        lv_obj_t *pipe_img  = lv_img_create(lv_scr_act());
-        lv_img_set_src(pipe_img, &pipe);
-        pipes.push_back(pipe_img);
-        lv_obj_set_pos(pipe_img, i * 100, i * 100);
+        lv_obj_t *top_pipe = lv_img_create(section);
+        lv_obj_t *bottom_pipe = lv_img_create(section);
+
+        lv_img_set_src(lv_img_create(top_pipe), &pipe_top);
+        lv_img_set_src(lv_img_create(bottom_pipe), &pipe_bottom);
+        lv_obj_set_y(top_pipe, -175);
+        lv_obj_set_y(bottom_pipe, 275);
+
+        pipe_storage.push_back(section);
     }
-    */
 
     // Add birdie
     bird = lv_animimg_create(lv_scr_act());
+
+    lv_obj_set_scrollbar_mode(lv_scr_act(), LV_SCROLLBAR_MODE_OFF);
     reset_game = true;
 }
 
@@ -78,12 +60,41 @@ void FlappyBird::onUpdate()
         reset_game = false;
         run_game = false;
         gravity = {0.f};
+        pipe_velocity = 8;
         left_mouse_btn_released = true;
         lv_obj_set_pos(bird, LCD_H_RES / 3, LCD_V_RES / 2 - flappy1.header.h / 2);
         lv_animimg_set_src(bird, (const void **)bird_anim_flappy2, 1);
         lv_animimg_set_duration(bird, 300);
         lv_animimg_set_repeat_count(bird, LV_ANIM_REPEAT_INFINITE);
         lv_animimg_start(bird);
+
+        for (int i = 0; i < pipe_storage.size(); i++)
+        {
+            lv_obj_set_x(pipe_storage[i], LCD_H_RES);
+            lv_obj_add_flag(pipe_storage[i], LV_OBJ_FLAG_HIDDEN);
+        }
+
+        active_pipes.clear();
+
+        // Start with three pipes
+        active_pipes.push_back(pipe_storage[0]);
+        active_pipes.push_back(pipe_storage[1]);
+        active_pipes.push_back(pipe_storage[2]);
+
+        lv_obj_set_x(active_pipes[0], 100);
+        lv_obj_set_x(active_pipes[1], 300);
+        lv_obj_set_x(active_pipes[2], 500);
+        lv_obj_set_y(lv_obj_get_child(active_pipes[0], 0), -180);
+        lv_obj_set_y(lv_obj_get_child(active_pipes[0], 1), 340);
+        lv_obj_set_y(lv_obj_get_child(active_pipes[1], 0), -175);
+        lv_obj_set_y(lv_obj_get_child(active_pipes[1], 1), 275);
+        lv_obj_set_y(lv_obj_get_child(active_pipes[2], 0), -250);
+        lv_obj_set_y(lv_obj_get_child(active_pipes[2], 1), 320);
+
+        /* Start with first section hidden as it's pos. to the left of birdie already at start. */
+        // lv_obj_clear_flag(active_pipes[0], LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(active_pipes[1], LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(active_pipes[2], LV_OBJ_FLAG_HIDDEN);
     }
 
     // Game
@@ -97,8 +108,9 @@ void FlappyBird::onUpdate()
     {
         if (run_game)
         {
+            // addSection();
             moveBird();
-            // movePipes();
+            movePipes();
         }
         else
         {
@@ -136,6 +148,7 @@ void FlappyBird::moveBird()
         else
         {
             lv_animimg_set_src(bird, (const void **)bird_anim_flappy2, 1);
+            lv_obj_invalidate(bird);
             lv_obj_set_y(bird, LCD_V_RES - flappy1.header.h / 2);
             has_collided = true;
         }
@@ -143,23 +156,32 @@ void FlappyBird::moveBird()
     }
 }
 
-uint32_t my_lv_rand(uint32_t min, uint32_t max)
-{
-    // static uint32_t a = 0x1234ABCD; /*Seed*/
-    std::srand(std::time(nullptr));
-    uint32_t a = std::rand();
-
-    /*Algorithm "xor" from p. 4 of Marsaglia, "Xorshift RNGs"*/
-    uint32_t x = a;
-    x ^= x << 13;
-    x ^= x >> 17;
-    x ^= x << 5;
-    a = x;
-
-    return (a % (max - min + 1)) + min;
-}
-
 void FlappyBird::movePipes()
 {
-    printf("RANDOM: %lu\n", my_lv_rand(100, 200));
+
+    // used to randomize length of top pipe and the gap to bottom pipe.
+    uint32_t top_pipe_y;
+    uint32_t section_gap;
+
+    for (int i = 0; i < active_pipes.size(); i++)
+    {
+        if (lv_obj_get_x(active_pipes[i]) > -60)
+        {
+            lv_obj_set_x(active_pipes[i], lv_obj_get_x(active_pipes[i]) - pipe_velocity);
+            move_status[i] = true;
+        }
+        else
+        {
+            if (move_status[i])
+            {
+                top_pipe_y = lv_rand(100, 290);
+                section_gap = lv_rand(80, 130);
+                lv_obj_set_y(lv_obj_get_child(active_pipes[i], 0), -top_pipe_y);
+                lv_obj_set_y(lv_obj_get_child(active_pipes[i], 1), pipe_top.header.h - top_pipe_y + section_gap);
+                lv_obj_set_x(active_pipes[i], LCD_H_RES);
+                lv_obj_clear_flag(active_pipes[i], LV_OBJ_FLAG_HIDDEN);
+                move_status[i] = false;
+            }
+        }
+    }
 }
